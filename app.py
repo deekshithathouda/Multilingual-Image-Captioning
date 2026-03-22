@@ -234,8 +234,8 @@ def load_model():
                "Salesforce/blip-image-captioning-base")
     mdl  = BlipForConditionalGeneration.from_pretrained(
                "Salesforce/blip-image-captioning-base",
-               torch_dtype = torch.float16,    # ← uses half RAM
-               low_cpu_mem_usage = True         # ← loads efficiently
+               torch_dtype      = torch.float16,
+               low_cpu_mem_usage= True
            )
     mdl.eval()
     return proc, mdl, "cpu"
@@ -246,19 +246,18 @@ def generate_captions(img):
     inputs = processor(images=img, return_tensors="pt").to(device)
     captions = []
     with torch.no_grad():
+        # FASTER configs — reduced beams and sampling
         configs = [
-            dict(max_length=50, num_beams=5, early_stopping=True),
-            dict(max_length=20, num_beams=5, early_stopping=True),
-            dict(max_length=50, do_sample=True, temperature=0.7, top_p=0.9,  top_k=50),
-            dict(max_length=50, do_sample=True, temperature=0.9, top_p=0.95, top_k=80),
-            dict(max_length=50, do_sample=True, temperature=1.2, top_p=0.98, top_k=120),
-            dict(max_length=70, num_beams=7, early_stopping=True),
-            dict(max_length=50, do_sample=False, num_beams=1),
-            dict(max_length=50, do_sample=True, top_k=30, temperature=0.8),
+            dict(max_length=30, num_beams=2, early_stopping=True),
+            dict(max_length=20, num_beams=2, early_stopping=True),
+            dict(max_length=30, do_sample=True, temperature=0.7, top_k=30),
+            dict(max_length=30, do_sample=True, temperature=0.9, top_k=50),
+            dict(max_length=30, do_sample=True, temperature=1.1, top_k=80),
         ]
         for cfg in configs:
             out = model.generate(**inputs, **cfg)
-            captions.append(processor.decode(out[0], skip_special_tokens=True).strip())
+            captions.append(
+                processor.decode(out[0], skip_special_tokens=True).strip())
     seen, unique = set(), []
     for cap in captions:
         if cap.lower().strip() not in seen:
